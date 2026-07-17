@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live TV — Admin</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0d0f12;color:#e8e8e8;font-family:Arial,'Hind Siliguri',sans-serif}
+  header{background:#15181d;padding:12px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #222}
+  header h1{font-size:1.1rem}
+  .wrap{max-width:860px;margin:0 auto;padding:18px}
+  .card{background:#15181d;border:1px solid #222;border-radius:10px;padding:18px;margin-bottom:18px}
+  .card h2{font-size:1rem;margin-bottom:14px;color:#fff;border-bottom:1px solid #222;padding-bottom:8px}
+  label{display:block;font-size:.8rem;color:#9aa;margin:10px 0 4px}
+  input,select{width:100%;padding:10px;background:#0d0f12;border:1px solid #2a2f36;border-radius:7px;color:#fff;font-size:.92rem;outline:none}
+  input:focus,select:focus{border-color:#e53935}
+  button{background:#e53935;color:#fff;border:none;padding:10px 16px;border-radius:7px;cursor:pointer;font-size:.88rem;margin-top:12px}
+  button:hover{background:#c62828}
+  button.sec{background:#2a2f36}button.sec:hover{background:#363c44}
+  button.del{background:#7a2222;padding:6px 10px;margin:0}button.del:hover{background:#9a2a2a}
+  button.edit{background:#2a2f36;padding:6px 10px;margin:0}
+  button.move{background:#2a2f36;padding:6px 9px;margin:0;font-size:.9rem;line-height:1}
+  button.move:disabled{opacity:.3;cursor:default}
+  .row{display:flex;gap:10px;flex-wrap:wrap}.row>div{flex:1;min-width:160px}
+  table{width:100%;border-collapse:collapse;margin-top:6px}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid #222;font-size:.85rem;vertical-align:middle}
+  th{color:#9aa;font-weight:normal;font-size:.75rem;text-transform:uppercase}
+  .badge{font-size:.7rem;padding:2px 8px;border-radius:10px}
+  .badge.active{background:#16401d;color:#5fd877}.badge.dead{background:#401616;color:#ef6b6b}
+  .logo-thumb{width:42px;height:30px;object-fit:contain;background:#000;border-radius:4px;vertical-align:middle}
+  .toggle{display:inline-flex;align-items:center;gap:8px}
+  .switch{position:relative;width:46px;height:24px;background:#444;border-radius:12px;cursor:pointer;transition:.2s}
+  .switch.on{background:#2e7d32}
+  .switch i{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;transition:.2s}
+  .switch.on i{left:25px}
+  .msg{font-size:.82rem;margin-top:8px;min-height:18px}
+  .msg.ok{color:#5fd877}.msg.err{color:#ef6b6b}
+  .hidden{display:none}
+  .login-box{max-width:340px;margin:80px auto;text-align:center}
+  .actions{display:flex;gap:6px}
+  .catchk{display:inline-flex;align-items:center;gap:6px;background:#0d0f12;border:1px solid #2a2f36;border-radius:20px;padding:6px 12px;cursor:pointer;font-size:.82rem;flex:0 0 auto}
+  .catchk input{width:auto;padding:0}
+  .catchk.empty{color:#666;font-size:.82rem;border:none;background:none;padding:6px 0}
+  .logo-gallery{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;padding:8px;max-height:190px;overflow-y:auto;background:#0d0f12;border:1px solid #2a2f36;border-radius:7px}
+  .logo-pick{width:58px;height:42px;object-fit:contain;background:#000;border-radius:5px;cursor:pointer;border:2px solid transparent}
+  .logo-pick:hover{border-color:#555}
+  .logo-pick.active{border-color:#e53935}
+  .logo-empty{color:#666;font-size:.8rem;padding:4px}
+  .switch.small{width:36px;height:20px}
+  .switch.small i{width:14px;height:14px}
+  .switch.small.on i{left:19px}
+  .stat-row{display:flex;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+  .stat-box{background:#0d0f12;border:1px solid #2a2f36;border-radius:8px;padding:12px 20px;text-align:center;min-width:110px}
+  .stat-num{font-size:1.7rem;font-weight:bold;color:#e53935}
+  .stat-label{font-size:.72rem;color:#9aa;margin-top:2px}
+  .trend-row{display:flex;align-items:center;gap:8px;font-size:.78rem;color:#ccc;margin:4px 0}
+  .trend-date{width:78px;flex:0 0 auto;color:#9aa}
+  .trend-track{flex:1;background:#0d0f12;border-radius:4px;overflow:hidden;height:9px}
+  .trend-bar{height:9px;background:#e53935;border-radius:4px}
+  .trend-count{width:34px;flex:0 0 auto;text-align:right}
+  .stat-hist{margin-top:18px;padding-top:14px;border-top:1px solid #222}
+  .quickbtn{flex:0 0 auto;align-self:flex-end}
+  .deleted-tag{color:#888;font-size:.72rem}
+</style>
+</head>
+<body>
+<header><h1>⚙️ Live TV — Admin Panel</h1><a href="/" style="color:#9aa;font-size:.85rem">← প্লেয়ার</a></header>
+
+<!-- LOGIN -->
+<div class="wrap hidden" id="loginView">
+  <div class="card login-box">
+    <h2>🔒 Admin Login</h2>
+    <input type="password" id="apw" placeholder="অ্যাডমিন পাসওয়ার্ড" autofocus>
+    <div class="msg err" id="loginMsg"></div>
+    <button onclick="adminLogin()" style="width:100%">লগইন</button>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="wrap hidden" id="dashView">
+
+  <div class="card">
+    <h2>🔐 অ্যাক্সেস ও পাসওয়ার্ড</h2>
+    <div class="toggle">
+      <div class="switch" id="authSwitch" onclick="toggleAuth()"><i></i></div>
+      <span id="authLabel">লগইন আবশ্যক</span>
+    </div>
+    <div class="row" style="margin-top:14px">
+      <div>
+        <label>ভিউয়ার পাসওয়ার্ড</label>
+        <input id="viewerPw" placeholder="নতুন পাসওয়ার্ড">
+        <button class="sec" onclick="saveViewerPw()">পাসওয়ার্ড সেভ</button>
+      </div>
+      <div>
+        <label>অ্যাডমিন পাসওয়ার্ড পরিবর্তন</label>
+        <input id="adminPw" type="password" placeholder="নতুন অ্যাডমিন পাসওয়ার্ড">
+        <button class="sec" onclick="saveAdminPw()">অ্যাডমিন পাসওয়ার্ড সেভ</button>
+      </div>
+    </div>
+    <div class="msg" id="setMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>🗂️ ক্যাটাগরি</h2>
+    <div class="row">
+      <div><input type="hidden" id="editCatId"><input id="catName" placeholder="ক্যাটাগরির নাম, যেমন: Sports"></div>
+    </div>
+    <div class="actions">
+      <button onclick="saveCategory()">💾 সেভ</button>
+      <button class="sec" onclick="resetCatForm()">নতুন</button>
+    </div>
+    <div class="msg" id="catMsg"></div>
+    <table><thead><tr><th>নাম</th><th>চ্যানেল</th><th>অ্যাকশন</th></tr></thead>
+    <tbody id="catList"></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>📊 পরিসংখ্যান</h2>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-num" id="liveTotal">0</div><div class="stat-label">এখন দেখছেন (মোট)</div></div>
+    </div>
+    <table><thead><tr><th>চ্যানেল</th><th>এখন দর্শক</th></tr></thead><tbody id="liveList"></tbody></table>
+
+    <div class="stat-hist">
+      <div class="row" style="align-items:flex-end">
+        <div><label>শুরু</label><input type="date" id="statFrom"></div>
+        <div><label>শেষ</label><input type="date" id="statTo"></div>
+        <div class="quickbtn"><button class="sec" onclick="setStatRange('today')">আজ</button></div>
+        <div class="quickbtn"><button class="sec" onclick="setStatRange('month')">এই মাস</button></div>
+        <div class="quickbtn"><button onclick="loadRangeStats()">দেখুন</button></div>
+      </div>
+      <div class="stat-row" style="margin-top:14px">
+        <div class="stat-box"><div class="stat-num" id="rangeTotal">0</div><div class="stat-label">নির্বাচিত সময়ে মোট ইউনিক দর্শক</div></div>
+      </div>
+      <div id="statTrend"></div>
+      <table><thead><tr><th>চ্যানেল</th><th>ইউনিক দর্শক</th><th>মোট দেখার সময়</th></tr></thead><tbody id="statChTable"></tbody></table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 id="formTitle">➕ নতুন চ্যানেল যোগ করুন</h2>
+    <input type="hidden" id="editId">
+    <div class="row">
+      <div><label>চ্যানেলের নাম *</label><input id="cName" placeholder="যেমন: Somoy TV"></div>
+      <div><label>সোর্স টাইপ</label>
+        <select id="cType"><option value="ts">TS (http .ts)</option><option value="hls">HLS (.m3u8)</option><option value="rtsp">RTSP</option></select>
+      </div>
+      <div><label>মোড (CPU)</label>
+        <select id="cMode">
+          <option value="auto">Auto (H.264→copy, কম CPU)</option>
+          <option value="copy">Copy (re-encode ছাড়া, সর্বনিম্ন CPU)</option>
+          <option value="transcode">Transcode (পূর্ণ re-encode, বেশি CPU)</option>
+        </select>
+      </div>
+    </div>
+    <label>ক্যাটাগরি (একাধিক বাছাই করা যাবে)</label>
+    <div class="row" id="cCategoryBox" style="gap:14px"></div>
+    <label>সোর্স URL *</label>
+    <input id="cUrl" placeholder="http://172.155.255.2/0.ts  বা  rtsp://...">
+    <label>লোগো</label>
+    <div class="row">
+      <div><input id="cLogo" placeholder="লোগো URL (অথবা নিচে থেকে বাছাই/আপলোড করুন)" oninput="renderGallery()"></div>
+      <div><input type="file" id="cLogoFile" accept="image/*"></div>
+    </div>
+    <div class="logo-gallery" id="logoGallery"></div>
+    <div class="actions">
+      <button onclick="saveChannel()">💾 সেভ</button>
+      <button class="sec" onclick="resetForm()">নতুন</button>
+    </div>
+    <div class="msg" id="chMsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>📺 চ্যানেল তালিকা</h2>
+    <table><thead><tr><th>লোগো</th><th>নাম</th><th>টাইপ</th><th>মোড</th><th>ক্যাটাগরি</th><th>চালু</th><th>স্ট্যাটাস</th><th>অ্যাকশন</th></tr></thead>
+    <tbody id="chList"></tbody></table>
+  </div>
+</div>
+
+<script>
+let state=null;
+function $(id){return document.getElementById(id);}
+function show(v){$('loginView').classList.toggle('hidden',v!=='login');$('dashView').classList.toggle('hidden',v!=='dash');}
+function msg(el,text,ok){el.textContent=text;el.className='msg '+(ok?'ok':'err');setTimeout(()=>{el.textContent='';},4000);}
+
+async function api(path,method,body){
+  const opt={method:method||'GET',headers:{}};
+  if(body){opt.headers['Content-Type']='application/json';opt.body=JSON.stringify(body);}
+  const r=await fetch(path,opt);
+  return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))};
+}
+
+let liveStatsTimer=null;
+async function init(){
+  const r=await api('/api/admin/state');
+  if(r.status===401){show('login');return;}
+  state=r.data; show('dash'); render();
+  if(!$('statFrom').value){ setStatRange('month'); } else { loadRangeStats(); }
+  loadLiveStats();
+  if(!liveStatsTimer) liveStatsTimer=setInterval(loadLiveStats,15000);
+}
+async function adminLogin(){
+  const r=await api('/api/admin/login','POST',{password:$('apw').value});
+  if(r.ok){init();} else {msg($('loginMsg'),'ভুল পাসওয়ার্ড।',false);}
+}
+$('apw') && $('apw').addEventListener('keydown',e=>{if(e.key==='Enter')adminLogin();});
+
+function catName(id){const c=(state.categories||[]).find(x=>x.id===id);return c?c.name:'—';}
+function catNames(ids){return (ids&&ids.length)?ids.map(catName).join(', '):'—';}
+
+function fmtDuration(secs){
+  secs=secs||0;
+  const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60);
+  if(h>0) return `${h}ঘ ${m}মি`;
+  return `${m}মি`;
+}
+function bdtToday(){
+  const d=new Date(Date.now()+6*3600*1000);
+  return d.toISOString().slice(0,10);
+}
+function setStatRange(kind){
+  const today=bdtToday();
+  if(kind==='today'){ $('statFrom').value=today; $('statTo').value=today; }
+  else{ $('statFrom').value=today.slice(0,8)+'01'; $('statTo').value=today; }
+  loadRangeStats();
+}
+async function loadLiveStats(){
+  const r=await api('/api/admin/stats/live');
+  if(!r.ok)return;
+  $('liveTotal').textContent=r.data.total;
+  const tb=$('liveList');tb.innerHTML='';
+  if(!r.data.channels.length){ tb.innerHTML='<tr><td colspan="2" style="color:#666">এই মুহূর্তে কেউ দেখছে না।</td></tr>'; return; }
+  r.data.channels.forEach(c=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(c.name)}</td><td>${c.count}</td>`;
+    tb.appendChild(tr);
+  });
+}
+async function loadRangeStats(){
+  const from=$('statFrom').value, to=$('statTo').value;
+  if(!from||!to)return;
+  const r=await api(`/api/admin/stats/range?from=${from}&to=${to}`);
+  if(!r.ok)return;
+  $('rangeTotal').textContent=r.data.total_unique_viewers;
+  // per-day trend
+  const trend=$('statTrend'); trend.innerHTML='';
+  const maxV=Math.max(1,...r.data.days.map(d=>d.unique_viewers));
+  r.data.days.forEach(d=>{
+    const row=document.createElement('div'); row.className='trend-row';
+    const pct=Math.round(100*d.unique_viewers/maxV);
+    row.innerHTML=`<span class="trend-date">${d.date}</span>
+      <span class="trend-track"><span class="trend-bar" style="width:${pct}%"></span></span>
+      <span class="trend-count">${d.unique_viewers}</span>`;
+    trend.appendChild(row);
+  });
+  if(!r.data.days.length){ trend.innerHTML='<span style="color:#666;font-size:.8rem">এই সময়ে কোনো দর্শক নেই।</span>'; }
+  // per-channel totals for the range
+  const tb=$('statChTable'); tb.innerHTML='';
+  if(!r.data.channels.length){ tb.innerHTML='<tr><td colspan="3" style="color:#666">তথ্য নেই।</td></tr>'; return; }
+  r.data.channels.forEach(c=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(c.name)}${c.deleted?' <span class="deleted-tag">(মুছে ফেলা হয়েছে)</span>':''}</td>
+      <td>${c.unique_viewers}</td><td>${fmtDuration(c.watch_seconds)}</td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function render(){
+  // auth switch
+  $('authSwitch').classList.toggle('on',state.auth_enabled);
+  $('authLabel').textContent=state.auth_enabled?'লগইন আবশ্যক (চালু)':'উন্মুক্ত (লগইন বন্ধ)';
+  $('viewerPw').value=state.viewer_password||'';
+  // category checkboxes (channel form) — preserve currently checked selection across re-render
+  const box=$('cCategoryBox');
+  const prevChecked=new Set(Array.from(box.querySelectorAll('input:checked')).map(i=>i.value));
+  box.innerHTML='';
+  if(!(state.categories||[]).length){
+    box.innerHTML='<span class="catchk empty">কোনো ক্যাটাগরি নেই — উপরে তৈরি করুন</span>';
+  }
+  (state.categories||[]).forEach(cat=>{
+    const lbl=document.createElement('label'); lbl.className='catchk';
+    lbl.innerHTML=`<input type="checkbox" value="${cat.id}"><span>${esc(cat.name)}</span>`;
+    lbl.querySelector('input').checked=prevChecked.has(cat.id);
+    box.appendChild(lbl);
+  });
+  // category list
+  const ctb=$('catList');ctb.innerHTML='';
+  (state.categories||[]).forEach(cat=>{
+    const cnt=(state.channels||[]).filter(c=>(c.categories||[]).includes(cat.id)).length;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(cat.name)}</td>
+      <td>${cnt}</td>
+      <td><div class="actions">
+        <button class="edit" onclick='editCat(${JSON.stringify(cat.id)})'>এডিট</button>
+        <button class="del" onclick='delCat(${JSON.stringify(cat.id)},${JSON.stringify(cat.name)})'>ডিলিট</button>
+      </div></td>`;
+    ctb.appendChild(tr);
+  });
+  // channel list
+  const tb=$('chList');tb.innerHTML='';
+  const arr=state.channels||[];
+  arr.forEach((c,idx)=>{
+    const st=(state.statuses||{})[c.id]||'?';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${c.logo?`<img class="logo-thumb" src="${c.logo}">`:'📺'}</td>
+      <td>${esc(c.name)}</td><td>${c.type}</td><td>${c.mode||'auto'}</td>
+      <td>${esc(catNames(c.categories))}</td>
+      <td><div class="switch small ${c.enabled?'on':''}" onclick='toggleCh(${JSON.stringify(c.id)},${!c.enabled})'><i></i></div></td>
+      <td><span class="badge ${st==='active'?'active':'dead'}">${st}</span></td>
+      <td><div class="actions">
+        <button class="move" onclick='moveCh(${JSON.stringify(c.id)},-1)' ${idx===0?'disabled':''}>▲</button>
+        <button class="move" onclick='moveCh(${JSON.stringify(c.id)},1)' ${idx===arr.length-1?'disabled':''}>▼</button>
+        <button class="edit" onclick='editCh(${JSON.stringify(c.id)})'>এডিট</button>
+        <button class="del" onclick='delCh(${JSON.stringify(c.id)},${JSON.stringify(c.name)})'>ডিলিট</button>
+      </div></td>`;
+    tb.appendChild(tr);
+  });
+  renderGallery();
+}
+
+function renderGallery(){
+  const gal=$('logoGallery'); gal.innerHTML='';
+  const logos=state.logos||[];
+  if(!logos.length){ gal.innerHTML='<span class="logo-empty">এখনো কোনো লোগো আপলোড হয়নি।</span>'; return; }
+  const cur=$('cLogo').value.trim();
+  logos.forEach(src=>{
+    const img=document.createElement('img');
+    img.src=src; img.className='logo-pick'+(src===cur?' active':'');
+    img.title=src.split('/').pop();
+    img.onclick=()=>selectLogo(src);
+    gal.appendChild(img);
+  });
+}
+function selectLogo(src){ $('cLogo').value=src; $('cLogoFile').value=''; renderGallery(); }
+
+function resetCatForm(){$('editCatId').value='';$('catName').value='';}
+function editCat(id){
+  const c=(state.categories||[]).find(x=>x.id===id);if(!c)return;
+  $('editCatId').value=c.id;$('catName').value=c.name;window.scrollTo({top:0,behavior:'smooth'});
+}
+async function saveCategory(){
+  const name=$('catName').value.trim();
+  if(!name){msg($('catMsg'),'নাম দিন।',false);return;}
+  const body={name};
+  if($('editCatId').value)body.id=$('editCatId').value;
+  const r=await api('/api/admin/category','POST',body);
+  if(r.ok){msg($('catMsg'),'ক্যাটাগরি সেভ হয়েছে।',true);resetCatForm();await init();}
+  else msg($('catMsg'),r.data.error||'ব্যর্থ।',false);
+}
+async function delCat(id,name){
+  if(!confirm(`"${name}" ক্যাটাগরিটি ডিলিট করবেন? এই ক্যাটাগরিতে থাকা চ্যানেলগুলো থেকে এটি সরিয়ে দেওয়া হবে (চ্যানেল থাকবে, শুধু এই ক্যাটাগরি বাদ যাবে)।`))return;
+  const r=await api('/api/admin/category/delete','POST',{id});
+  if(r.ok){await init();}
+}
+function esc(s){return (s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
+async function toggleAuth(){
+  const r=await api('/api/admin/auth','POST',{auth_enabled:!state.auth_enabled});
+  if(r.ok){state.auth_enabled=r.data.auth_enabled;render();}
+}
+async function saveViewerPw(){
+  const r=await api('/api/admin/password','POST',{viewer_password:$('viewerPw').value});
+  msg($('setMsg'),r.ok?'ভিউয়ার পাসওয়ার্ড সেভ হয়েছে।':'ব্যর্থ।',r.ok);
+}
+async function saveAdminPw(){
+  const v=$('adminPw').value;
+  if(v.length<4){msg($('setMsg'),'অন্তত ৪ অক্ষর দিন।',false);return;}
+  const r=await api('/api/admin/adminpassword','POST',{admin_password:v});
+  if(r.ok){$('adminPw').value='';msg($('setMsg'),'অ্যাডমিন পাসওয়ার্ড পরিবর্তন হয়েছে।',true);}
+  else msg($('setMsg'),'ব্যর্থ।',false);
+}
+
+function setCheckedCategories(ids){
+  const set=new Set(ids||[]);
+  $('cCategoryBox').querySelectorAll('input[type=checkbox]').forEach(i=>{i.checked=set.has(i.value);});
+}
+function getCheckedCategories(){
+  return Array.from($('cCategoryBox').querySelectorAll('input:checked')).map(i=>i.value);
+}
+function resetForm(){$('editId').value='';$('cName').value='';$('cUrl').value='';$('cLogo').value='';$('cLogoFile').value='';$('cType').value='ts';$('cMode').value='auto';setCheckedCategories([]);$('formTitle').textContent='➕ নতুন চ্যানেল যোগ করুন';renderGallery();}
+function editCh(id){
+  const c=state.channels.find(x=>x.id===id);if(!c)return;
+  $('editId').value=c.id;$('cName').value=c.name;$('cUrl').value=c.url;$('cType').value=c.type;$('cMode').value=c.mode||'auto';$('cLogo').value=c.logo||'';$('cLogoFile').value='';setCheckedCategories(c.categories);
+  $('formTitle').textContent='✏️ চ্যানেল এডিট: '+c.name;window.scrollTo({top:0,behavior:'smooth'});renderGallery();
+}
+async function moveCh(id,dir){
+  const arr=state.channels; const i=arr.findIndex(c=>c.id===id); const j=i+dir;
+  if(j<0||j>=arr.length) return;
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+  render(); // optimistic update
+  const r=await api('/api/admin/channel/reorder','POST',{order:arr.map(c=>c.id)});
+  if(!r.ok){ await init(); } // revert from server on failure
+}
+async function delCh(id,name){
+  if(!confirm(`"${name}" চ্যানেলটি ডিলিট করবেন?`))return;
+  const r=await api('/api/admin/channel/delete','POST',{id});
+  if(r.ok){await init();}
+}
+async function toggleCh(id,enabled){
+  const r=await api('/api/admin/channel/toggle','POST',{id,enabled});
+  if(r.ok){ const c=state.channels.find(x=>x.id===id); if(c) c.enabled=enabled; render(); }
+}
+async function uploadLogo(){
+  const f=$('cLogoFile').files[0];
+  if(!f)return $('cLogo').value;
+  const r=await fetch('/api/admin/logo?filename='+encodeURIComponent(f.name),{method:'POST',body:f});
+  const d=await r.json();
+  if(r.ok)return d.logo; throw new Error(d.error||'logo upload failed');
+}
+async function saveChannel(){
+  const name=$('cName').value.trim(),url=$('cUrl').value.trim();
+  if(!name||!url){msg($('chMsg'),'নাম ও URL দিন।',false);return;}
+  let logo=$('cLogo').value.trim();
+  try{ if($('cLogoFile').files[0]) logo=await uploadLogo(); }
+  catch(e){ msg($('chMsg'),'লোগো আপলোড ব্যর্থ।',false); return; }
+  const body={name,url,type:$('cType').value,mode:$('cMode').value,logo,categories:getCheckedCategories()};
+  if($('editId').value)body.id=$('editId').value;
+  const r=await api('/api/admin/channel','POST',body);
+  if(r.ok){msg($('chMsg'),'চ্যানেল সেভ হয়েছে।',true);resetForm();await init();}
+  else msg($('chMsg'),r.data.error||'ব্যর্থ।',false);
+}
+
+init();
+</script>
+</body>
+</html>

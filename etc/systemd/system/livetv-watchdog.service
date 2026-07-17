@@ -1,0 +1,7 @@
+[Unit]
+Description=Live TV Stream Watchdog (A/V sync + freshness check)
+After=livetv-stream.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/livetv-watchdog.sh

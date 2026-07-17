@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live TV — Login</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0a0a;
+            color: #fff;
+            font-family: Arial, 'Hind Siliguri', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .card {
+            background: #161616;
+            padding: 36px 30px;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+            text-align: center;
+        }
+        .logo { font-size: 2.4rem; margin-bottom: 6px; }
+        h1 { font-size: 1.3rem; margin-bottom: 4px; color: #f0f0f0; }
+        p.sub { font-size: 0.82rem; color: #888; margin-bottom: 22px; }
+        input[type=password] {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 1rem;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #0d0d0d;
+            color: #fff;
+            outline: none;
+            margin-bottom: 14px;
+            transition: border 0.2s;
+        }
+        input[type=password]:focus { border-color: #e53935; }
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            background: #e53935;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background: #c62828; }
+        .error {
+            color: #ef5350;
+            font-size: 0.85rem;
+            margin-bottom: 14px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <form class="card" method="POST" action="/auth">
+        <div class="logo">&#128250;</div>
+        <h1>Live TV</h1>
+        <p class="sub">দেখতে হলে পাসওয়ার্ড দিন</p>
+        <div class="error" id="err">ভুল পাসওয়ার্ড। আবার চেষ্টা করুন।</div>
+        <input type="password" name="password" placeholder="পাসওয়ার্ড" autofocus required>
+        <button type="submit">লগইন</button>
+    </form>
+    <script>
+        if (location.search.indexOf('e=1') !== -1) {
+            document.getElementById('err').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

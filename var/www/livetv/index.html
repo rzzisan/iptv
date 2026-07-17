@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live TV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0a0a0a;color:#fff;font-family:Arial,'Hind Siliguri',sans-serif;min-height:100vh}
+  header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#111}
+  header h1{font-size:1.15rem;letter-spacing:1px}
+  header .right{font-size:.8rem;display:flex;gap:10px;align-items:center}
+  a.btn,button.btn{background:#e53935;color:#fff;border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:.8rem;text-decoration:none}
+  a.btn:hover,button.btn:hover{background:#c62828}
+  .wrap{max-width:1000px;margin:0 auto;padding:14px}
+  .player-box{width:100%;background:#000;border-radius:8px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.7)}
+  video{width:100%;display:block;aspect-ratio:16/9;object-fit:contain;background:#000}
+  .now{margin:10px 2px 6px;font-size:.95rem;color:#ddd;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .nowmid{display:flex;align-items:center;gap:8px;min-width:0;flex:1;justify-content:center}
+  .nowmid #nowName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .navbtn{flex:0 0 auto;background:#1d1d1d;color:#fff;border:1px solid #333;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:bold;transition:.15s}
+  .navbtn:hover{background:#e53935;border-color:#e53935}
+  .navbtn:active{transform:scale(.96)}
+  .now .dot{width:9px;height:9px;border-radius:50%;background:#e53935;animation:p 1.2s infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
+  .label{font-size:.8rem;color:#888;margin:14px 2px 8px;text-transform:uppercase;letter-spacing:1px}
+  .cat-row{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 4px;scrollbar-width:thin}
+  .cat-row::-webkit-scrollbar{height:7px}
+  .cat-row::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
+  .cat-btn{flex:0 0 auto;background:#161616;border:1px solid #2a2a2a;color:#ccc;padding:7px 14px;border-radius:20px;cursor:pointer;font-size:.8rem;white-space:nowrap}
+  .cat-btn:hover{background:#1d1d1d}
+  .cat-btn.active{background:#e53935;border-color:#e53935;color:#fff}
+  .chan-row{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 12px;scrollbar-width:thin}
+  .chan-row::-webkit-scrollbar{height:7px}
+  .chan-row::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
+  .chan{flex:0 0 auto;width:120px;background:#161616;border:2px solid transparent;border-radius:10px;padding:10px;cursor:pointer;text-align:center;transition:.15s}
+  .chan:hover{background:#1d1d1d}
+  .chan.active{border-color:#e53935;background:#1d1414}
+  .chan .logo{width:100%;height:64px;border-radius:6px;background:#000 center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:#444}
+  .chan .nm{margin-top:7px;font-size:.78rem;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .empty{color:#777;padding:20px;text-align:center}
+  /* login modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal.show{display:flex}
+  .card{background:#161616;padding:32px 26px;border-radius:12px;width:100%;max-width:340px;text-align:center}
+  .card h2{font-size:1.2rem;margin-bottom:6px}
+  .card p{font-size:.8rem;color:#888;margin-bottom:18px}
+  .card input{width:100%;padding:12px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#0d0d0d;color:#fff;margin-bottom:12px;outline:none}
+  .card input:focus{border-color:#e53935}
+  .card button{width:100%;padding:12px;font-size:1rem;font-weight:bold;border:none;border-radius:8px;background:#e53935;color:#fff;cursor:pointer}
+  .err{color:#ef5350;font-size:.82rem;margin-bottom:10px;display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>📺 Live TV</h1>
+  <div class="right">
+    <span id="authState"></span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="player-box"><video id="video" controls autoplay playsinline></video></div>
+  <div class="now">
+    <button class="navbtn" id="prevBtn" onclick="prevCh()">⏮ আগের</button>
+    <span class="nowmid"><span class="dot"></span><span id="nowName">—</span></span>
+    <button class="navbtn" id="nextBtn" onclick="nextCh()">পরের ⏭</button>
+  </div>
+  <div class="cat-row" id="catRow"></div>
+  <div class="label">চ্যানেল সমূহ</div>
+  <div class="chan-row" id="chanRow"><div class="empty">লোড হচ্ছে...</div></div>
+</div>
+
+<div class="modal" id="loginModal">
+  <div class="card">
+    <h2>🔒 লগইন</h2>
+    <p>লাইভ টিভি দেখতে পাসওয়ার্ড দিন</p>
+    <div class="err" id="loginErr">ভুল পাসওয়ার্ড।</div>
+    <input type="password" id="pw" placeholder="পাসওয়ার্ড" autofocus>
+    <button onclick="doLogin()">লগইন</button>
+  </div>
+</div>
+
+<script>
+const video=document.getElementById('video');
+const chanRow=document.getElementById('chanRow');
+const catRow=document.getElementById('catRow');
+const nowName=document.getElementById('nowName');
+let hls=null, channels=[], categories=[], activeCategory='', current=null, authEnabled=false, retryTimer=null, lastScrollId=null;
+
+function viewerId(){
+  let v=localStorage.getItem('vid');
+  if(!v){ v=(crypto.randomUUID?crypto.randomUUID():'v'+Date.now()+'-'+Math.random().toString(36).slice(2)); localStorage.setItem('vid',v); }
+  return v;
+}
+const VID=viewerId();
+function sendHeartbeat(){
+  if(!current)return;
+  fetch('/api/heartbeat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vid:VID,channel:current})}).catch(()=>{});
+}
+setInterval(sendHeartbeat,15000);
+
+async function loadChannels(){
+  try{
+    const r=await fetch('/api/channels',{cache:'no-store'});
+    const d=await r.json();
+    authEnabled=d.auth_enabled; channels=d.channels||[]; categories=d.categories||[];
+    document.getElementById('authState').textContent=authEnabled?'🔒 Protected':'';
+    renderCategories();
+    if(!channels.length){ chanRow.innerHTML='<div class="empty">কোনো চ্যানেল নেই। Admin প্যানেল থেকে যোগ করুন।</div>'; nowName.textContent='—'; current=null; return; }
+    renderChannels();
+    // শুধু প্রথমবার অথবা বর্তমান চ্যানেল মুছে গেলে play — পর্যায়ক্রমিক রিফ্রেশে ভিডিও রিস্টার্ট হবে না
+    if(!current || !channels.find(c=>c.id===current)){ const f=filtered(); if(f.length) play(f[0].id); }
+  }catch(e){ if(!current) chanRow.innerHTML='<div class="empty">সার্ভার সংযোগ ব্যর্থ।</div>'; }
+}
+
+function filtered(){ return activeCategory ? channels.filter(c=>(c.categories||[]).includes(activeCategory)) : channels; }
+
+function renderCategories(){
+  catRow.innerHTML='';
+  const mk=(id,label,count)=>{
+    const el=document.createElement('div');
+    el.className='cat-btn'+(activeCategory===id?' active':'');
+    el.textContent=label+' ('+count+')';
+    el.onclick=()=>setCategory(id);
+    catRow.appendChild(el);
+  };
+  mk('','All',channels.length);
+  categories.forEach(cat=>mk(cat.id,cat.name,channels.filter(c=>(c.categories||[]).includes(cat.id)).length));
+}
+
+function setCategory(id){
+  activeCategory=id; renderCategories(); renderChannels();
+  const f=filtered();
+  if(f.length && !f.find(c=>c.id===current)){ play(f[0].id); }
+}
+
+function renderChannels(){
+  chanRow.innerHTML='';
+  let activeEl=null;
+  const list=filtered();
+  if(!list.length){ chanRow.innerHTML='<div class="empty">এই ক্যাটাগরিতে কোনো চ্যানেল নেই।</div>'; }
+  list.forEach(c=>{
+    const el=document.createElement('div');
+    el.className='chan'+(c.id===current?' active':'');
+    el.onclick=()=>play(c.id);
+    const logo=c.logo?`background-image:url('${c.logo}')`:'';
+    el.innerHTML=`<div class="logo" style="${logo}">${c.logo?'':'📺'}</div><div class="nm">${escapeHtml(c.name)}</div>`;
+    chanRow.appendChild(el);
+    if(c.id===current) activeEl=el;
+  });
+  if(activeEl && current!==lastScrollId){ activeEl.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'}); lastScrollId=current; }
+  const dis=list.length<2;
+  document.getElementById('prevBtn').disabled=dis;
+  document.getElementById('nextBtn').disabled=dis;
+}
+
+function nextCh(){ const list=filtered(); if(!list.length) return; const i=list.findIndex(c=>c.id===current); play(list[(i+1)%list.length].id); }
+function prevCh(){ const list=filtered(); if(!list.length) return; const i=list.findIndex(c=>c.id===current); play(list[(i-1+list.length)%list.length].id); }
+document.addEventListener('keydown',e=>{
+  if(/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) return;
+  if(e.key==='ArrowRight'){ nextCh(); }
+  else if(e.key==='ArrowLeft'){ prevCh(); }
+});
+function escapeHtml(s){return (s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));}
+
+function play(id){
+  const ch=channels.find(c=>c.id===id); if(!ch) return;
+  current=id; nowName.textContent=ch.name; renderChannels();
+  sendHeartbeat();
+  clearTimeout(retryTimer);
+  const src=`/hls/${id}/live.m3u8`;
+  if(hls){hls.destroy();hls=null;}
+  if(window.Hls && Hls.isSupported()){
+    hls=new Hls({liveSyncDurationCount:3,maxBufferLength:10,enableWorker:true});
+    hls.loadSource(src); hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play().catch(()=>{}));
+    hls.on(Hls.Events.ERROR,(_,data)=>{
+      if(data.fatal){
+        const resp=data.response&&data.response.code;
+        if(resp===403){ showLogin(); return; }
+        retryTimer=setTimeout(()=>play(id),4000);
+      }
+    });
+  } else if(video.canPlayType('application/vnd.apple.mpegurl')){
+    video.src=src; video.play().catch(()=>{});
+    video.onerror=()=>{ showLogin(); };
+  }
+}
+
+function showLogin(){ if(authEnabled) document.getElementById('loginModal').classList.add('show'); }
+function hideLogin(){ document.getElementById('loginModal').classList.remove('show'); }
+
+async function doLogin(){
+  const pw=document.getElementById('pw').value;
+  const err=document.getElementById('loginErr');
+  try{
+    const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+    if(r.ok){ err.style.display='none'; hideLogin(); if(current) play(current); }
+    else { err.style.display='block'; }
+  }catch(e){ err.style.display='block'; }
+}
+document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+
+loadChannels();
+setInterval(loadChannels,60000); // refresh channel list periodically
+</script>
+</body>
+</html>

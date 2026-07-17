@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Live TV watchdog every 15 seconds
+
+[Timer]
+OnBootSec=30
+OnUnitActiveSec=15
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

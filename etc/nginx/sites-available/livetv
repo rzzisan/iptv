@@ -1,0 +1,69 @@
+js_import auth from /etc/nginx/njs/auth.js;
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    server_name _;
+
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    gzip off;
+    client_max_body_size 5m;
+
+    # "1" if auth disabled OR a valid viewer cookie is present, else "0"
+    js_set $session_valid auth.validate;
+
+    # ---- Admin/control backend (Python) ----
+    location /api/ {
+        proxy_pass http://127.0.0.1:8088;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_http_version 1.1;
+    }
+
+    # ---- Admin panel (static; API enforces admin auth) ----
+    location /admin {
+        alias /var/www/admin/;
+        index index.html;
+        try_files $uri $uri/ /var/www/admin/index.html;
+    }
+
+    # ---- Channel logos (public) ----
+    location /logos/ {
+        root /var/www;
+        add_header Cache-Control "max-age=3600";
+    }
+
+    # ---- Protected: HLS playlists ----
+    location ~* ^/hls/.+\.m3u8$ {
+        if ($session_valid != "1") { return 403; }
+        root /var/www;
+        default_type application/vnd.apple.mpegurl;
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Access-Control-Allow-Origin *;
+    }
+
+    # ---- Protected: HLS segments ----
+    location ~* ^/hls/.+\.ts$ {
+        if ($session_valid != "1") { return 403; }
+        root /var/www;
+        default_type video/mp2t;
+        add_header Cache-Control "max-age=10";
+        add_header Access-Control-Allow-Origin *;
+    }
+
+    # ---- Status (public) ----
+    location = /status {
+        default_type application/json;
+        return 200 '{"status":"running"}';
+    }
+
+    # ---- Web player (public page; streams gated above) ----
+    location / {
+        root /var/www/livetv;
+        index index.html;
+        try_files $uri $uri/ =404;
+    }
+}
