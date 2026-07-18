@@ -50,6 +50,9 @@
   .card input:focus{border-color:#e53935}
   .card button{width:100%;padding:12px;font-size:1rem;font-weight:bold;border:none;border-radius:8px;background:#e53935;color:#fff;cursor:pointer}
   .err{color:#ef5350;font-size:.82rem;margin-bottom:10px;display:none}
+  .dtoverlay{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;z-index:999;text-align:center;padding:20px}
+  .dtoverlay.show{display:flex}
+  .dtoverlay .msg{color:#ef5350;font-size:1.1rem;line-height:1.7}
 </style>
 </head>
 <body>
@@ -70,6 +73,10 @@
   <div class="cat-row" id="catRow"></div>
   <div class="label">চ্যানেল সমূহ</div>
   <div class="chan-row" id="chanRow"><div class="empty">লোড হচ্ছে...</div></div>
+</div>
+
+<div class="dtoverlay" id="dtOverlay">
+  <div class="msg">⚠️ ডেভেলপার টুলস সনাক্ত হয়েছে<br>নিরাপত্তার জন্য প্লেয়ার বন্ধ করা হয়েছে।<br>পুনরায় দেখতে ডেভেলপার টুলস বন্ধ করে পেজ রিলোড করুন।</div>
 </div>
 
 <div class="modal" id="loginModal">
@@ -99,7 +106,46 @@ function sendHeartbeat(){
   if(!current)return;
   fetch('/api/heartbeat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({vid:VID,channel:current})}).catch(()=>{});
 }
-setInterval(sendHeartbeat,15000);
+const hbInterval=setInterval(sendHeartbeat,15000);
+
+/* ---------- ডেভেলপার টুলস প্রতিরোধ ---------- */
+document.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('keydown', e=>{
+  const k=e.key;
+  if(k==='F12') e.preventDefault();
+  if((e.ctrlKey||e.metaKey) && e.shiftKey && ['I','i','J','j','C','c','K','k','E','e'].includes(k)) e.preventDefault();
+  if((e.ctrlKey||e.metaKey) && ['U','u','S','s'].includes(k)) e.preventDefault();
+});
+
+let devtoolsOpen=false;
+function killPlayer(){
+  if(devtoolsOpen) return;
+  devtoolsOpen=true;
+  clearTimeout(retryTimer);
+  clearInterval(hbInterval);
+  clearInterval(loadInterval);
+  clearInterval(dtSizeTimer);
+  clearInterval(dtTimingTimer);
+  if(hls){ hls.destroy(); hls=null; }
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+  document.getElementById('dtOverlay').classList.add('show');
+}
+
+// পদ্ধতি ১: ডকড ডেভটুলসের কারণে window এর inner/outer সাইজে পার্থক্য
+const dtSizeTimer=setInterval(()=>{
+  const wDiff=window.outerWidth-window.innerWidth;
+  const hDiff=window.outerHeight-window.innerHeight;
+  if(wDiff>160||hDiff>160) killPlayer();
+},1000);
+
+// পদ্ধতি ২: debugger স্টেটমেন্ট — ডেভটুলস খোলা থাকলে এক্সিকিউশন থেমে যায়, ফলে সময় বেশি লাগে
+const dtTimingTimer=setInterval(()=>{
+  const t0=performance.now();
+  debugger;
+  if(performance.now()-t0>100) killPlayer();
+},1000);
 
 async function loadChannels(){
   try{
@@ -204,7 +250,7 @@ async function doLogin(){
 document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
 loadChannels();
-setInterval(loadChannels,60000); // refresh channel list periodically
+const loadInterval=setInterval(loadChannels,60000); // refresh channel list periodically
 </script>
 </body>
 </html>
