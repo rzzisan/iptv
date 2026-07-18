@@ -7,72 +7,144 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
+  html{font-size:16px}
   body{background:#0a0a0a;color:#fff;font-family:Arial,'Hind Siliguri',sans-serif;min-height:100vh}
-  header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#111}
-  header h1{font-size:1.15rem;letter-spacing:1px}
-  header .right{font-size:.8rem;display:flex;gap:10px;align-items:center}
-  a.btn,button.btn{background:#e53935;color:#fff;border:none;padding:7px 12px;border-radius:6px;cursor:pointer;font-size:.8rem;text-decoration:none}
-  a.btn:hover,button.btn:hover{background:#c62828}
-  .wrap{max-width:1000px;margin:0 auto;padding:14px}
-  .player-box{width:100%;background:#000;border-radius:8px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.7)}
-  video{width:100%;display:block;aspect-ratio:16/9;object-fit:contain;background:#000}
-  .now{margin:10px 2px 6px;font-size:.95rem;color:#ddd;display:flex;align-items:center;justify-content:space-between;gap:8px}
-  .nowmid{display:flex;align-items:center;gap:8px;min-width:0;flex:1;justify-content:center}
-  .nowmid #nowName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .navbtn{flex:0 0 auto;background:#1d1d1d;color:#fff;border:1px solid #333;padding:9px 14px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:bold;transition:.15s}
-  .navbtn:hover{background:#e53935;border-color:#e53935}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#111;border-bottom:1px solid #1c1c1c}
+  header .brand{display:flex;align-items:center}
+  header .brand .ic{font-size:1.3rem;margin-right:8px}
+  header h1{font-size:1.1rem;letter-spacing:.5px;font-weight:bold}
+  header .right{font-size:.75rem}
+  .badge{background:#1d1d1d;border:1px solid #333;color:#bbb;padding:4px 10px;border-radius:20px}
+
+  .layout{max-width:1040px;margin:0 auto;padding:14px}
+  .main{width:100%}
+
+  .player-box{width:100%;background:#000;border-radius:8px;overflow:hidden;border:1px solid #1c1c1c;box-shadow:0 2px 10px rgba(0,0,0,.5)}
+  .player-ratio{position:relative;width:100%;padding-top:56.25%;background:#000}
+  .player-ratio video{position:absolute;top:0;left:0;right:0;bottom:0;width:100%;height:100%;object-fit:contain;background:#000}
+
+  .now{margin:12px 2px 4px;display:flex;align-items:center;justify-content:space-between}
+  .nowmid{display:flex;align-items:center;min-width:0;flex:1;justify-content:center;padding:0 10px}
+  .nowmid #nowName{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.95rem;color:#eee;margin-left:8px}
+  .live-badge{display:inline-flex;align-items:center;flex:0 0 auto;background:#2a1212;color:#ff6b64;font-size:.65rem;font-weight:bold;letter-spacing:.5px;padding:4px 9px;border-radius:20px}
+  .live-badge .dot{width:6px;height:6px;border-radius:50%;background:#e53935;margin-right:5px;animation:p 1.2s infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:.35}}
+
+  .navbtn{flex:0 0 auto;background:#1d1d1d;color:#fff;border:1px solid #2e2e2e;padding:10px 15px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:bold;transition:background-color .15s,border-color .15s,transform .15s}
+  .navbtn:hover,.navbtn:focus{background:#e53935;border-color:#e53935;outline:none}
   .navbtn:active{transform:scale(.96)}
-  .now .dot{width:9px;height:9px;border-radius:50%;background:#e53935;animation:p 1.2s infinite}
-  @keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
-  .label{font-size:.8rem;color:#888;margin:14px 2px 8px;text-transform:uppercase;letter-spacing:1px}
-  .cat-row{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 4px;scrollbar-width:thin}
-  .cat-row::-webkit-scrollbar{height:7px}
-  .cat-row::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
-  .cat-btn{flex:0 0 auto;background:#161616;border:1px solid #2a2a2a;color:#ccc;padding:7px 14px;border-radius:20px;cursor:pointer;font-size:.8rem;white-space:nowrap}
-  .cat-btn:hover{background:#1d1d1d}
+  .navbtn:disabled{opacity:.4;cursor:default}
+  .navbtn:disabled:hover{background:#1d1d1d;border-color:#2e2e2e}
+
+  .label{font-size:.78rem;color:#888;margin:16px 2px 8px;text-transform:uppercase;letter-spacing:1px}
+
+  .cat-row{display:flex;overflow-x:auto;overflow-y:hidden;padding:4px 2px 4px;scrollbar-width:thin;white-space:nowrap}
+  .cat-row::-webkit-scrollbar{height:6px}
+  .cat-row::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:4px}
+  .cat-btn{flex:0 0 auto;background:#161616;border:1px solid #2a2a2a;color:#ccc;padding:8px 15px;margin-right:8px;border-radius:20px;cursor:pointer;font-size:.8rem;white-space:nowrap;transition:background-color .15s,border-color .15s,color .15s}
+  .cat-btn:hover,.cat-btn:focus{background:#1d1d1d;outline:none}
   .cat-btn.active{background:#e53935;border-color:#e53935;color:#fff}
-  .chan-row{display:flex;gap:10px;overflow-x:auto;padding:4px 2px 12px;scrollbar-width:thin}
-  .chan-row::-webkit-scrollbar{height:7px}
-  .chan-row::-webkit-scrollbar-thumb{background:#333;border-radius:4px}
-  .chan{flex:0 0 auto;width:120px;background:#161616;border:2px solid transparent;border-radius:10px;padding:10px;cursor:pointer;text-align:center;transition:.15s}
-  .chan:hover{background:#1d1d1d}
+  .cat-btn.active:hover,.cat-btn.active:focus{background:#c62828}
+
+  .chan-row{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding:4px 2px 12px;scrollbar-width:thin}
+  .chan-row::-webkit-scrollbar{height:6px}
+  .chan-row::-webkit-scrollbar-thumb{background:#2a2a2a;border-radius:4px}
+  .chan{flex:0 0 auto;width:112px;margin-right:10px;background:#141414;border:2px solid transparent;border-radius:10px;padding:9px;cursor:pointer;text-align:center;transition:background-color .15s,border-color .15s,transform .15s}
+  .chan:hover,.chan:focus{background:#1d1d1d;outline:none}
+  .chan:active{transform:scale(.97)}
   .chan.active{border-color:#e53935;background:#1d1414}
-  .chan .logo{width:100%;height:64px;border-radius:6px;background:#000 center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:#444}
-  .chan .nm{margin-top:7px;font-size:.78rem;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .empty{color:#777;padding:20px;text-align:center}
+  .chan .logo{width:100%;height:58px;border-radius:6px;background:#000 center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#3a3a3a}
+  .chan .nm{margin-top:7px;font-size:.76rem;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .empty{color:#777;padding:22px 10px;text-align:center;font-size:.85rem}
+
   /* login modal */
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50}
+  .modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
   .modal.show{display:flex}
-  .card{background:#161616;padding:32px 26px;border-radius:12px;width:100%;max-width:340px;text-align:center}
+  .card{background:#161616;border:1px solid #262626;padding:30px 24px;border-radius:12px;width:100%;max-width:340px;text-align:center}
   .card h2{font-size:1.2rem;margin-bottom:6px}
   .card p{font-size:.8rem;color:#888;margin-bottom:18px}
   .card input{width:100%;padding:12px;font-size:1rem;border:1px solid #333;border-radius:8px;background:#0d0d0d;color:#fff;margin-bottom:12px;outline:none}
   .card input:focus{border-color:#e53935}
   .card button{width:100%;padding:12px;font-size:1rem;font-weight:bold;border:none;border-radius:8px;background:#e53935;color:#fff;cursor:pointer}
+  .card button:hover,.card button:focus{background:#c62828;outline:none}
   .err{color:#ef5350;font-size:.82rem;margin-bottom:10px;display:none}
-  .dtoverlay{position:fixed;inset:0;background:#000;display:none;align-items:center;justify-content:center;z-index:999;text-align:center;padding:20px}
+
+  .dtoverlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;display:none;align-items:center;justify-content:center;z-index:999;text-align:center;padding:20px}
   .dtoverlay.show{display:flex}
   .dtoverlay .msg{color:#ef5350;font-size:1.1rem;line-height:1.7}
+
+  /* ---------- tablet / small-desktop ---------- */
+  @media (min-width:640px){
+    header h1{font-size:1.25rem}
+    .navbtn{font-size:.9rem;padding:10px 18px}
+    .chan{width:132px}
+    .chan .logo{height:70px}
+  }
+
+  /* ---------- TV / wide screens: sidebar layout + bigger 10-foot-friendly type ---------- */
+  @media (min-width:900px){
+    .layout{max-width:1500px;padding:22px 26px;display:flex;align-items:flex-start}
+    header{padding:16px 26px}
+    header h1{font-size:1.45rem}
+    header .brand .ic{font-size:1.6rem}
+    .badge{font-size:.85rem;padding:6px 14px}
+
+    .main{flex:1 1 auto;min-width:0}
+    .side{flex:0 0 380px;width:380px;margin-left:24px}
+
+    .now{margin:16px 2px 0}
+    .nowmid #nowName{font-size:1.15rem}
+    .live-badge{font-size:.75rem;padding:5px 11px}
+    .navbtn{font-size:1rem;padding:13px 22px}
+
+    .label{font-size:.85rem;margin:0 2px 10px}
+    .cat-row{flex-wrap:wrap;overflow:visible;white-space:normal}
+    .cat-btn{font-size:.9rem;padding:9px 17px;margin-bottom:8px}
+
+    .chan-row{flex-direction:column;overflow-x:hidden;overflow-y:auto;max-height:calc(100vh - 230px);padding:4px 4px 4px 2px}
+    .chan{width:100%;margin-right:0;margin-bottom:8px;display:flex;flex-direction:row;align-items:center;text-align:left;padding:8px;min-height:64px}
+    .chan .logo{width:52px;height:52px;flex:0 0 52px;margin-right:12px;font-size:1.2rem}
+    .chan .nm{margin-top:0;font-size:.95rem;flex:1;min-width:0}
+  }
+
+  /* ---------- large / 1080p+ TVs ---------- */
+  @media (min-width:1400px){
+    .layout{max-width:1760px;padding:28px 34px}
+    header{padding:18px 34px}
+    header h1{font-size:1.7rem}
+    .side{flex:0 0 440px;width:440px}
+    .nowmid #nowName{font-size:1.3rem}
+    .navbtn{font-size:1.1rem;padding:15px 26px}
+    .cat-btn{font-size:1rem;padding:10px 20px}
+    .chan{min-height:72px;padding:10px}
+    .chan .logo{width:60px;height:60px;flex:0 0 60px;font-size:1.35rem}
+    .chan .nm{font-size:1.05rem}
+  }
 </style>
 </head>
 <body>
 <header>
-  <h1>📺 Live TV</h1>
-  <div class="right">
-    <span id="authState"></span>
-  </div>
+  <div class="brand"><span class="ic">📺</span><h1>Live TV</h1></div>
+  <div class="right"><span id="authState" class="badge" style="display:none"></span></div>
 </header>
 
-<div class="wrap">
-  <div class="player-box"><video id="video" controls autoplay playsinline></video></div>
-  <div class="now">
-    <button class="navbtn" id="prevBtn" onclick="prevCh()">⏮ আগের</button>
-    <span class="nowmid"><span class="dot"></span><span id="nowName">—</span></span>
-    <button class="navbtn" id="nextBtn" onclick="nextCh()">পরের ⏭</button>
-  </div>
-  <div class="cat-row" id="catRow"></div>
-  <div class="label">চ্যানেল সমূহ</div>
-  <div class="chan-row" id="chanRow"><div class="empty">লোড হচ্ছে...</div></div>
+<div class="layout">
+  <main class="main">
+    <div class="player-box"><div class="player-ratio"><video id="video" controls autoplay playsinline></video></div></div>
+    <div class="now">
+      <button class="navbtn" id="prevBtn" onclick="prevCh()">⏮ আগের</button>
+      <span class="nowmid"><span class="live-badge"><span class="dot"></span>LIVE</span><span id="nowName">—</span></span>
+      <button class="navbtn" id="nextBtn" onclick="nextCh()">পরের ⏭</button>
+    </div>
+  </main>
+
+  <aside class="side">
+    <div class="cat-row" id="catRow"></div>
+    <div class="label">চ্যানেল সমূহ</div>
+    <div class="chan-row" id="chanRow"><div class="empty">লোড হচ্ছে...</div></div>
+  </aside>
 </div>
 
 <div class="dtoverlay" id="dtOverlay">
@@ -126,6 +198,7 @@ function killPlayer(){
   clearInterval(loadInterval);
   clearInterval(dtSizeTimer);
   clearInterval(dtTimingTimer);
+  clearInterval(streamTokenInterval);
   if(hls){ hls.destroy(); hls=null; }
   video.pause();
   video.removeAttribute('src');
@@ -147,12 +220,23 @@ const dtTimingTimer=setInterval(()=>{
   if(performance.now()-t0>100) killPlayer();
 },1000);
 
+// রিমোট/কীবোর্ড দিয়ে ব্রাউজ করার জন্য: ফোকাসযোগ্য করা + Enter/স্পেসে সিলেক্ট + তীরচিহ্ন দিয়ে ভেতরে চলাফেরা
+function keyNav(el, prevKey, nextKey){
+  el.tabIndex=0;
+  el.addEventListener('keydown', e=>{
+    if(e.key==='Enter'||e.key===' '){ e.preventDefault(); el.click(); }
+    else if(e.key===nextKey){ const n=el.nextElementSibling; if(n){ e.preventDefault(); e.stopPropagation(); n.focus(); n.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'}); } }
+    else if(e.key===prevKey){ const p=el.previousElementSibling; if(p){ e.preventDefault(); e.stopPropagation(); p.focus(); p.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'}); } }
+  });
+}
+
 async function loadChannels(){
   try{
     const r=await fetch('/api/channels',{cache:'no-store'});
     const d=await r.json();
     authEnabled=d.auth_enabled; channels=d.channels||[]; categories=d.categories||[];
-    document.getElementById('authState').textContent=authEnabled?'🔒 Protected':'';
+    const authEl=document.getElementById('authState');
+    authEl.textContent=authEnabled?'🔒 Protected':''; authEl.style.display=authEnabled?'':'none';
     renderCategories();
     if(!channels.length){ chanRow.innerHTML='<div class="empty">কোনো চ্যানেল নেই। Admin প্যানেল থেকে যোগ করুন।</div>'; nowName.textContent='—'; current=null; return; }
     renderChannels();
@@ -170,6 +254,7 @@ function renderCategories(){
     el.className='cat-btn'+(activeCategory===id?' active':'');
     el.textContent=label+' ('+count+')';
     el.onclick=()=>setCategory(id);
+    keyNav(el,'ArrowLeft','ArrowRight');
     catRow.appendChild(el);
   };
   mk('','All',channels.length);
@@ -191,6 +276,7 @@ function renderChannels(){
     const el=document.createElement('div');
     el.className='chan'+(c.id===current?' active':'');
     el.onclick=()=>play(c.id);
+    keyNav(el,'ArrowUp','ArrowDown');
     const logo=c.logo?`background-image:url('${c.logo}')`:'';
     el.innerHTML=`<div class="logo" style="${logo}">${c.logo?'':'📺'}</div><div class="nm">${escapeHtml(c.name)}</div>`;
     chanRow.appendChild(el);
@@ -249,7 +335,16 @@ async function doLogin(){
 }
 document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
 
-loadChannels();
+/* ---------- স্ট্রিম টোকেন: /hls/ এর জন্য স্বল্পস্থায়ী কুকি, লিক হওয়া URL কাজ করা বন্ধ করতে ---------- */
+async function ensureStreamToken(){
+  try{ await fetch('/api/streamtoken',{credentials:'same-origin',cache:'no-store'}); }catch(e){}
+}
+const streamTokenInterval=setInterval(ensureStreamToken,60000); // ৯০ সেকেন্ড TTL, ৬০ সেকেন্ডে রিফ্রেশ
+
+(async()=>{
+  await ensureStreamToken();
+  loadChannels();
+})();
 const loadInterval=setInterval(loadChannels,60000); // refresh channel list periodically
 </script>
 </body>

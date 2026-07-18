@@ -116,7 +116,7 @@ def _ensure_default_settings():
         for k in ("viewer_password", "admin_password"):
             if k not in existing:
                 conn.execute("INSERT INTO settings(key,value) VALUES (?,?)", (k, secrets.token_urlsafe(6)))
-        for k in ("viewer_secret", "admin_secret"):
+        for k in ("viewer_secret", "admin_secret", "stream_secret"):
             if k not in existing:
                 conn.execute("INSERT INTO settings(key,value) VALUES (?,?)", (k, secrets.token_urlsafe(32)))
 

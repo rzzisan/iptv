@@ -14,6 +14,9 @@ server {
 
     # "1" if auth disabled OR a valid viewer cookie is present, else "0"
     js_set $session_valid auth.validate;
+    # "1" only if a valid short-lived stream_token cookie is present (always required for /hls/,
+    # regardless of auth_enabled — stops a leaked/copied .m3u8/.ts URL from working once it goes stale)
+    js_set $stream_valid auth.validateStream;
 
     # ---- Admin/control backend (Python) ----
     location /api/ {
@@ -39,6 +42,7 @@ server {
     # ---- Protected: HLS playlists ----
     location ~* ^/hls/.+\.m3u8$ {
         if ($session_valid != "1") { return 403; }
+        if ($stream_valid != "1") { return 403; }
         root /var/www;
         default_type application/vnd.apple.mpegurl;
         add_header Cache-Control "no-cache, no-store, must-revalidate";
@@ -48,6 +52,7 @@ server {
     # ---- Protected: HLS segments ----
     location ~* ^/hls/.+\.ts$ {
         if ($session_valid != "1") { return 403; }
+        if ($stream_valid != "1") { return 403; }
         root /var/www;
         default_type video/mp2t;
         add_header Cache-Control "max-age=10";

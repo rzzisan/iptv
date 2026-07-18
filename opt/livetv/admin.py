@@ -21,12 +21,18 @@ SAFE_CAT_ID = re.compile(r"^cat\d+$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 LOGO_EXT = (".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg")
 
+STREAM_TOKEN_TTL = 90  # seconds; short-lived so a leaked /hls/ URL stops working almost immediately
+
 # ---------- signed cookies (matches njs HMAC-SHA256) ----------
 def sign(secret, payload):
     return hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
 
 def make_token(secret, hours):
     exp = str(int(time.time()) + int(hours) * 3600)
+    return exp + "." + sign(secret, exp)
+
+def make_token_seconds(secret, seconds):
+    exp = str(int(time.time()) + int(seconds))
     return exp + "." + sign(secret, exp)
 
 def verify_token(secret, token):
@@ -44,14 +50,17 @@ def verify_token(secret, token):
 def write_auth_js(settings):
     enabled = 1 if settings.get("auth_enabled") else 0
     secret = settings["viewer_secret"].replace("'", "")
+    stream_secret = settings["stream_secret"].replace("'", "")
     js = """import crypto from 'crypto';
 var AUTH_ENABLED = %d;
 var SECRET = '%s';
-function sign(v){var h=crypto.createHmac('sha256',SECRET);h.update(v);return h.digest('hex');}
-function verify(t){if(!t)return false;var d=t.indexOf('.');if(d<1)return false;var p=t.substring(0,d),s=t.substring(d+1);if(sign(p)!==s)return false;var e=Number(p);if(!e||(Date.now()/1000)>e)return false;return true;}
-function validate(r){ if(!AUTH_ENABLED) return '1'; return verify(r.variables.cookie_session)?'1':'0'; }
-export default { validate };
-""" % (enabled, secret)
+var STREAM_SECRET = '%s';
+function sign(secret,v){var h=crypto.createHmac('sha256',secret);h.update(v);return h.digest('hex');}
+function verify(secret,t){if(!t)return false;var d=t.indexOf('.');if(d<1)return false;var p=t.substring(0,d),s=t.substring(d+1);if(sign(secret,p)!==s)return false;var e=Number(p);if(!e||(Date.now()/1000)>e)return false;return true;}
+function validate(r){ if(!AUTH_ENABLED) return '1'; return verify(SECRET,r.variables.cookie_session)?'1':'0'; }
+function validateStream(r){ return verify(STREAM_SECRET,r.variables.cookie_stream_token)?'1':'0'; }
+export default { validate, validateStream };
+""" % (enabled, secret, stream_secret)
     tmp = AUTH_JS + ".tmp"
     with open(tmp, "w") as f:
         f.write(js)
@@ -153,6 +162,10 @@ class H(BaseHTTPRequestHandler):
                      for c in db.get_channels() if c["enabled"]]
             return self._send(200, {"auth_enabled": settings["auth_enabled"], "channels": chans,
                                      "categories": db.get_categories()})
+        if p == "/api/streamtoken":
+            tok = make_token_seconds(settings["stream_secret"], STREAM_TOKEN_TTL)
+            ck = "stream_token=%s; Path=/hls/; Max-Age=%d; HttpOnly; SameSite=Lax" % (tok, STREAM_TOKEN_TTL)
+            return self._send(200, {"ok": True, "ttl": STREAM_TOKEN_TTL}, [("Set-Cookie", ck)])
         if p == "/api/logout":
             return self._send(200, {"ok": True},
                               [("Set-Cookie", "session=; Path=/; Max-Age=0")])
