@@ -172,8 +172,7 @@ function sendHeartbeat(){
 }
 const hbInterval=setInterval(sendHeartbeat,15000);
 
-/* ---------- রাইট-ক্লিক ও ডেভটুলস শর্টকাট বন্ধ (ডিটেকশন নেই — স্ট্রিম URL এখন টোকেন দিয়ে সুরক্ষিত) ---------- */
-document.addEventListener('contextmenu', e=>e.preventDefault());
+/* ---------- ডেভটুলস শর্টকাট বন্ধ (ডিটেকশন নেই — স্ট্রিম URL এখন টোকেন দিয়ে সুরক্ষিত) ---------- */
 document.addEventListener('keydown', e=>{
   const k=e.key;
   if(k==='F12') e.preventDefault();
