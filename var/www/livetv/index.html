@@ -71,10 +71,6 @@
   .card button:hover,.card button:focus{background:#c62828;outline:none}
   .err{color:#ef5350;font-size:.82rem;margin-bottom:10px;display:none}
 
-  .dtoverlay{position:fixed;top:0;left:0;right:0;bottom:0;background:#000;display:none;align-items:center;justify-content:center;z-index:999;text-align:center;padding:20px}
-  .dtoverlay.show{display:flex}
-  .dtoverlay .msg{color:#ef5350;font-size:1.1rem;line-height:1.7}
-
   /* ---------- tablet / small-desktop ---------- */
   @media (min-width:640px){
     header h1{font-size:1.25rem}
@@ -147,10 +143,6 @@
   </aside>
 </div>
 
-<div class="dtoverlay" id="dtOverlay">
-  <div class="msg">⚠️ ডেভেলপার টুলস সনাক্ত হয়েছে<br>নিরাপত্তার জন্য প্লেয়ার বন্ধ করা হয়েছে।<br>পুনরায় দেখতে ডেভেলপার টুলস বন্ধ করে পেজ রিলোড করুন।</div>
-</div>
-
 <div class="modal" id="loginModal">
   <div class="card">
     <h2>🔒 লগইন</h2>
@@ -180,7 +172,7 @@ function sendHeartbeat(){
 }
 const hbInterval=setInterval(sendHeartbeat,15000);
 
-/* ---------- ডেভেলপার টুলস প্রতিরোধ ---------- */
+/* ---------- রাইট-ক্লিক ও ডেভটুলস শর্টকাট বন্ধ (ডিটেকশন নেই — স্ট্রিম URL এখন টোকেন দিয়ে সুরক্ষিত) ---------- */
 document.addEventListener('contextmenu', e=>e.preventDefault());
 document.addEventListener('keydown', e=>{
   const k=e.key;
@@ -188,37 +180,6 @@ document.addEventListener('keydown', e=>{
   if((e.ctrlKey||e.metaKey) && e.shiftKey && ['I','i','J','j','C','c','K','k','E','e'].includes(k)) e.preventDefault();
   if((e.ctrlKey||e.metaKey) && ['U','u','S','s'].includes(k)) e.preventDefault();
 });
-
-let devtoolsOpen=false;
-function killPlayer(){
-  if(devtoolsOpen) return;
-  devtoolsOpen=true;
-  clearTimeout(retryTimer);
-  clearInterval(hbInterval);
-  clearInterval(loadInterval);
-  clearInterval(dtSizeTimer);
-  clearInterval(dtTimingTimer);
-  clearInterval(streamTokenInterval);
-  if(hls){ hls.destroy(); hls=null; }
-  video.pause();
-  video.removeAttribute('src');
-  video.load();
-  document.getElementById('dtOverlay').classList.add('show');
-}
-
-// পদ্ধতি ১: ডকড ডেভটুলসের কারণে window এর inner/outer সাইজে পার্থক্য
-const dtSizeTimer=setInterval(()=>{
-  const wDiff=window.outerWidth-window.innerWidth;
-  const hDiff=window.outerHeight-window.innerHeight;
-  if(wDiff>160||hDiff>160) killPlayer();
-},1000);
-
-// পদ্ধতি ২: debugger স্টেটমেন্ট — ডেভটুলস খোলা থাকলে এক্সিকিউশন থেমে যায়, ফলে সময় বেশি লাগে
-const dtTimingTimer=setInterval(()=>{
-  const t0=performance.now();
-  debugger;
-  if(performance.now()-t0>100) killPlayer();
-},1000);
 
 // রিমোট/কীবোর্ড দিয়ে ব্রাউজ করার জন্য: ফোকাসযোগ্য করা + Enter/স্পেসে সিলেক্ট + তীরচিহ্ন দিয়ে ভেতরে চলাফেরা
 function keyNav(el, prevKey, nextKey){
