@@ -2,7 +2,7 @@
 """Live TV admin/control backend. Stdlib only. Binds 127.0.0.1:8088 (nginx proxies).
 Persistence lives in db.py (SQLite); this module is pure HTTP routing + systemd/nginx glue.
 """
-import json, os, re, hmac, hashlib, time, subprocess, threading
+import json, os, re, hmac, hashlib, time, subprocess, threading, ipaddress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -12,6 +12,7 @@ CHAN_DIR = "/etc/livetv/channels"
 HLS_ROOT = "/var/www/hls"
 LOGO_DIR = "/var/www/logos"
 AUTH_JS = "/etc/nginx/njs/auth.js"
+ACL_CONF = "/etc/nginx/conf.d/livetv-acl.conf"
 CONFIG_LOCK = threading.Lock()   # guards settings/category/channel mutations
 STATS_LOCK = threading.Lock()    # guards viewer session writes (kept separate: heartbeats
                                   # must never queue behind a slow channel save/systemctl call)
@@ -67,6 +68,31 @@ export default { validate, validateStream };
     os.replace(tmp, AUTH_JS)
     os.chmod(AUTH_JS, 0o600)
     subprocess.run(["nginx", "-s", "reload"], capture_output=True)
+
+# ---------- nginx IP ACL (geo map) generation ----------
+def normalize_cidr(raw):
+    """Returns the canonical 'a.b.c.d/n' form, or None if raw isn't a valid IPv4/IPv6 network."""
+    try:
+        return str(ipaddress.ip_network(str(raw).strip(), strict=False))
+    except ValueError:
+        return None
+
+def write_acl_conf(enabled, prefixes):
+    lines = ["geo $livetv_acl_allowed {"]
+    if enabled:
+        lines.append("    default 0;")
+        for p in prefixes:
+            lines.append("    %s 1;" % p["cidr"])
+    else:
+        lines.append("    default 1;")
+    lines.append("}\n")
+    tmp = ACL_CONF + ".tmp"
+    with open(tmp, "w") as f:
+        f.write("\n".join(lines))
+    os.replace(tmp, ACL_CONF)
+    # config is admin-entered CIDRs; verify before reloading a live streaming server
+    if sh("nginx", "-t").returncode == 0:
+        subprocess.run(["nginx", "-s", "reload"], capture_output=True)
 
 # ---------- channel / systemd management ----------
 def sh(*args):
@@ -183,6 +209,8 @@ class H(BaseHTTPRequestHandler):
                 "categories": db.get_categories(),
                 "logos": list_logos(),
                 "statuses": {c["id"]: self._status(c["id"]) for c in channels},
+                "acl_enabled": settings["acl_enabled"],
+                "acl_prefixes": db.get_acl_prefixes(),
             })
         if p == "/api/admin/stats/live":
             if not self._is_admin(settings):
@@ -252,6 +280,13 @@ class H(BaseHTTPRequestHandler):
             with CONFIG_LOCK:
                 db.delete_category(cid)
             return self._send(200, {"ok": True})
+        if p == "/api/admin/category/reorder":
+            order = self._json_body().get("order", [])
+            with CONFIG_LOCK:
+                ok = db.reorder_categories(order)
+            if not ok:
+                return self._send(400, {"error": "order must list all category ids exactly once"})
+            return self._send(200, {"ok": True})
         if p == "/api/admin/channel/delete":
             cid = self._json_body().get("id", "")
             with CONFIG_LOCK:
@@ -271,6 +306,30 @@ class H(BaseHTTPRequestHandler):
                 db.set_setting("auth_enabled", "1" if enabled else "0")
                 write_auth_js(db.get_settings())
             return self._send(200, {"ok": True, "auth_enabled": enabled})
+        if p == "/api/admin/acl":
+            enabled = bool(self._json_body().get("acl_enabled"))
+            with CONFIG_LOCK:
+                db.set_setting("acl_enabled", "1" if enabled else "0")
+                write_acl_conf(enabled, db.get_acl_prefixes())
+            return self._send(200, {"ok": True, "acl_enabled": enabled})
+        if p == "/api/admin/acl/prefix":
+            b = self._json_body()
+            cidr = normalize_cidr(b.get("cidr", ""))
+            if not cidr:
+                return self._send(400, {"error": "invalid IP/CIDR"})
+            note = str(b.get("note", "")).strip()[:200]
+            with CONFIG_LOCK:
+                new_id = db.add_acl_prefix(cidr, note)
+                if new_id is None:
+                    return self._send(400, {"error": "this prefix is already in the list"})
+                write_acl_conf(db.get_settings()["acl_enabled"], db.get_acl_prefixes())
+            return self._send(200, {"ok": True, "id": new_id, "cidr": cidr})
+        if p == "/api/admin/acl/prefix/delete":
+            aid = self._json_body().get("id")
+            with CONFIG_LOCK:
+                db.delete_acl_prefix(aid)
+                write_acl_conf(db.get_settings()["acl_enabled"], db.get_acl_prefixes())
+            return self._send(200, {"ok": True})
         if p == "/api/admin/password":
             np = str(self._json_body().get("viewer_password", "")).strip()
             if not np:
@@ -386,7 +445,9 @@ def startup():
     os.makedirs(CHAN_DIR, exist_ok=True)
     for ch in db.get_channels():
         write_channel_env(ch)
-    write_auth_js(db.get_settings())
+    settings = db.get_settings()
+    write_auth_js(settings)
+    write_acl_conf(settings["acl_enabled"], db.get_acl_prefixes())
 
 if __name__ == "__main__":
     startup()

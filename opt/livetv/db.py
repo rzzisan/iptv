@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 CREATE TABLE IF NOT EXISTS categories (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL
+    name TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS channels (
     id TEXT PRIMARY KEY,
@@ -49,6 +50,12 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_channel_closed ON sessions(channel_id, closed);
 CREATE INDEX IF NOT EXISTS idx_sessions_viewer ON sessions(viewer_uid);
 CREATE INDEX IF NOT EXISTS idx_sessions_start ON sessions(start_ts);
+CREATE TABLE IF NOT EXISTS acl_prefixes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    cidr TEXT NOT NULL UNIQUE,
+    note TEXT NOT NULL DEFAULT '',
+    created_ts INTEGER NOT NULL
+);
 """
 
 
@@ -90,8 +97,9 @@ def _migrate_from_json():
             if key == "auth_enabled":
                 val = "1" if val else "0"
             conn.execute("INSERT OR REPLACE INTO settings(key,value) VALUES (?,?)", (key, str(val)))
-        for cat in cfg.get("categories", []):
-            conn.execute("INSERT OR REPLACE INTO categories(id,name) VALUES (?,?)", (cat["id"], cat["name"]))
+        for i, cat in enumerate(cfg.get("categories", [])):
+            conn.execute("INSERT OR REPLACE INTO categories(id,name,sort_order) VALUES (?,?,?)",
+                         (cat["id"], cat["name"], i))
         for i, ch in enumerate(cfg.get("channels", [])):
             cats = ch.get("categories")
             if cats is None:
@@ -110,7 +118,7 @@ def _migrate_from_json():
 def _ensure_default_settings():
     with get_conn() as conn:
         existing = {r["key"] for r in conn.execute("SELECT key FROM settings").fetchall()}
-        for k, v in (("auth_enabled", "0"), ("session_hours", "24")):
+        for k, v in (("auth_enabled", "0"), ("session_hours", "24"), ("acl_enabled", "0")):
             if k not in existing:
                 conn.execute("INSERT INTO settings(key,value) VALUES (?,?)", (k, v))
         for k in ("viewer_password", "admin_password"):
@@ -121,10 +129,20 @@ def _ensure_default_settings():
                 conn.execute("INSERT INTO settings(key,value) VALUES (?,?)", (k, secrets.token_urlsafe(32)))
 
 
+def _ensure_category_sort_order(conn):
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(categories)")}
+    if "sort_order" in cols:
+        return
+    conn.execute("ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+    for i, r in enumerate(conn.execute("SELECT id FROM categories ORDER BY rowid").fetchall()):
+        conn.execute("UPDATE categories SET sort_order=? WHERE id=?", (i, r["id"]))
+
+
 def init_db():
     is_new = not os.path.exists(DB_PATH)
     with get_conn() as conn:
         conn.executescript(SCHEMA_SQL)
+        _ensure_category_sort_order(conn)
     if is_new:
         _migrate_from_json()
     _ensure_default_settings()
@@ -137,6 +155,7 @@ def get_settings():
     d = {r["key"]: r["value"] for r in rows}
     d["auth_enabled"] = d.get("auth_enabled") == "1"
     d["session_hours"] = int(d.get("session_hours", 24))
+    d["acl_enabled"] = d.get("acl_enabled") == "1"
     return d
 
 
@@ -147,10 +166,32 @@ def set_setting(key, value):
             (key, str(value)))
 
 
+# ---------- IP ACL ----------
+def get_acl_prefixes():
+    with get_conn() as conn:
+        rows = conn.execute("SELECT id,cidr,note FROM acl_prefixes ORDER BY id").fetchall()
+    return [dict(r) for r in rows]
+
+
+def add_acl_prefix(cidr, note):
+    """Returns the new row id, or None if this cidr is already in the list."""
+    with get_conn() as conn:
+        if conn.execute("SELECT 1 FROM acl_prefixes WHERE cidr=?", (cidr,)).fetchone():
+            return None
+        cur = conn.execute("INSERT INTO acl_prefixes(cidr,note,created_ts) VALUES (?,?,?)",
+                            (cidr, note, int(time.time())))
+        return cur.lastrowid
+
+
+def delete_acl_prefix(aid):
+    with get_conn() as conn:
+        conn.execute("DELETE FROM acl_prefixes WHERE id=?", (aid,))
+
+
 # ---------- categories ----------
 def get_categories():
     with get_conn() as conn:
-        rows = conn.execute("SELECT id,name FROM categories ORDER BY rowid").fetchall()
+        rows = conn.execute("SELECT id,name FROM categories ORDER BY sort_order").fetchall()
     return [dict(r) for r in rows]
 
 
@@ -161,8 +202,9 @@ def save_category(cid, name):
             if cur.rowcount == 0:
                 return None
         else:
+            maxo = conn.execute("SELECT COALESCE(MAX(sort_order),-1) AS m FROM categories").fetchone()["m"]
             cid = _next_id(conn, "categories", "cat")
-            conn.execute("INSERT INTO categories(id,name) VALUES (?,?)", (cid, name))
+            conn.execute("INSERT INTO categories(id,name,sort_order) VALUES (?,?,?)", (cid, name, maxo + 1))
     return cid
 
 
@@ -170,6 +212,16 @@ def delete_category(cid):
     with get_conn() as conn:
         conn.execute("DELETE FROM categories WHERE id=?", (cid,))
         conn.execute("DELETE FROM channel_categories WHERE category_id=?", (cid,))
+
+
+def reorder_categories(order):
+    with get_conn() as conn:
+        ids = {r["id"] for r in conn.execute("SELECT id FROM categories")}
+        if set(order) != ids:
+            return False
+        for i, cid in enumerate(order):
+            conn.execute("UPDATE categories SET sort_order=? WHERE id=?", (i, cid))
+    return True
 
 
 # ---------- channels ----------

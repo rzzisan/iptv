@@ -102,6 +102,26 @@
   </div>
 
   <div class="card">
+    <h2>🛡️ IP অ্যাক্সেস কন্ট্রোল (ACL)</h2>
+    <div class="toggle">
+      <div class="switch" id="aclSwitch" onclick="toggleAcl()"><i></i></div>
+      <span id="aclLabel">শুধু অনুমোদিত IP</span>
+    </div>
+    <p style="font-size:.78rem;color:#888;margin-top:8px">
+      চালু থাকলে নিচের তালিকার IP/CIDR ছাড়া কেউ হোমপেজ বা স্ট্রিম দেখতে পারবে না (বাকিদের "অ্যাক্সেস নেই" পেজ দেখানো হবে)।
+      অ্যাডমিন প্যানেল এই তালিকার বাইরে, তাই আপনি নিজে লক-আউট হবেন না।
+    </p>
+    <div class="row" style="margin-top:14px">
+      <div><label>IP / CIDR</label><input id="aclCidr" placeholder="যেমন: 103.100.20.0/24 বা 103.100.20.5"></div>
+      <div><label>নোট (ঐচ্ছিক)</label><input id="aclNote" placeholder="যেমন: অফিস"></div>
+    </div>
+    <div class="actions"><button onclick="addAclPrefix()">➕ যোগ করুন</button></div>
+    <div class="msg" id="aclMsg"></div>
+    <table><thead><tr><th>IP / CIDR</th><th>নোট</th><th>অ্যাকশন</th></tr></thead>
+    <tbody id="aclList"></tbody></table>
+  </div>
+
+  <div class="card">
     <h2>🗂️ ক্যাটাগরি</h2>
     <div class="row">
       <div><input type="hidden" id="editCatId"><input id="catName" placeholder="ক্যাটাগরির নাম, যেমন: Sports"></div>
@@ -271,6 +291,20 @@ function render(){
   $('authSwitch').classList.toggle('on',state.auth_enabled);
   $('authLabel').textContent=state.auth_enabled?'লগইন আবশ্যক (চালু)':'উন্মুক্ত (লগইন বন্ধ)';
   $('viewerPw').value=state.viewer_password||'';
+  // ACL switch + list
+  $('aclSwitch').classList.toggle('on',state.acl_enabled);
+  $('aclLabel').textContent=state.acl_enabled?'শুধু অনুমোদিত IP (চালু)':'সবার জন্য উন্মুক্ত (ACL বন্ধ)';
+  const atb=$('aclList');atb.innerHTML='';
+  const prefixes=state.acl_prefixes||[];
+  if(!prefixes.length){
+    atb.innerHTML='<tr><td colspan="3" style="color:#666">কোনো IP/CIDR যোগ করা হয়নি।</td></tr>';
+  }
+  prefixes.forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(p.cidr)}</td><td>${esc(p.note||'—')}</td>
+      <td><div class="actions"><button class="del" onclick='delAclPrefix(${p.id})'>ডিলিট</button></div></td>`;
+    atb.appendChild(tr);
+  });
   // category checkboxes (channel form) — preserve currently checked selection across re-render
   const box=$('cCategoryBox');
   const prevChecked=new Set(Array.from(box.querySelectorAll('input:checked')).map(i=>i.value));
@@ -286,12 +320,15 @@ function render(){
   });
   // category list
   const ctb=$('catList');ctb.innerHTML='';
-  (state.categories||[]).forEach(cat=>{
+  const cats=state.categories||[];
+  cats.forEach((cat,idx)=>{
     const cnt=(state.channels||[]).filter(c=>(c.categories||[]).includes(cat.id)).length;
     const tr=document.createElement('tr');
     tr.innerHTML=`<td>${esc(cat.name)}</td>
       <td>${cnt}</td>
       <td><div class="actions">
+        <button class="move" onclick='moveCat(${JSON.stringify(cat.id)},-1)' ${idx===0?'disabled':''}>▲</button>
+        <button class="move" onclick='moveCat(${JSON.stringify(cat.id)},1)' ${idx===cats.length-1?'disabled':''}>▼</button>
         <button class="edit" onclick='editCat(${JSON.stringify(cat.id)})'>এডিট</button>
         <button class="del" onclick='delCat(${JSON.stringify(cat.id)},${JSON.stringify(cat.name)})'>ডিলিট</button>
       </div></td>`;
@@ -348,6 +385,14 @@ async function saveCategory(){
   if(r.ok){msg($('catMsg'),'ক্যাটাগরি সেভ হয়েছে।',true);resetCatForm();await init();}
   else msg($('catMsg'),r.data.error||'ব্যর্থ।',false);
 }
+async function moveCat(id,dir){
+  const arr=state.categories; const i=arr.findIndex(c=>c.id===id); const j=i+dir;
+  if(j<0||j>=arr.length) return;
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+  render(); // optimistic update
+  const r=await api('/api/admin/category/reorder','POST',{order:arr.map(c=>c.id)});
+  if(!r.ok){ await init(); } // revert from server on failure
+}
 async function delCat(id,name){
   if(!confirm(`"${name}" ক্যাটাগরিটি ডিলিট করবেন? এই ক্যাটাগরিতে থাকা চ্যানেলগুলো থেকে এটি সরিয়ে দেওয়া হবে (চ্যানেল থাকবে, শুধু এই ক্যাটাগরি বাদ যাবে)।`))return;
   const r=await api('/api/admin/category/delete','POST',{id});
@@ -358,6 +403,23 @@ function esc(s){return (s||'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>'
 async function toggleAuth(){
   const r=await api('/api/admin/auth','POST',{auth_enabled:!state.auth_enabled});
   if(r.ok){state.auth_enabled=r.data.auth_enabled;render();}
+}
+async function toggleAcl(){
+  const r=await api('/api/admin/acl','POST',{acl_enabled:!state.acl_enabled});
+  if(r.ok){state.acl_enabled=r.data.acl_enabled;render();}
+}
+async function addAclPrefix(){
+  const cidr=$('aclCidr').value.trim();
+  if(!cidr){msg($('aclMsg'),'IP/CIDR দিন।',false);return;}
+  const note=$('aclNote').value.trim();
+  const r=await api('/api/admin/acl/prefix','POST',{cidr,note});
+  if(r.ok){$('aclCidr').value='';$('aclNote').value='';msg($('aclMsg'),'যোগ হয়েছে।',true);await init();}
+  else msg($('aclMsg'),r.data.error||'ব্যর্থ।',false);
+}
+async function delAclPrefix(id){
+  if(!confirm('এই IP/CIDR তালিকা থেকে বাদ দেবেন?'))return;
+  const r=await api('/api/admin/acl/prefix/delete','POST',{id});
+  if(r.ok){await init();}
 }
 async function saveViewerPw(){
   const r=await api('/api/admin/password','POST',{viewer_password:$('viewerPw').value});
